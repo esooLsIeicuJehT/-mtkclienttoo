@@ -316,14 +316,28 @@ class MTKProtocol:
     def _write(self, data: bytes) -> int:
         if not self._ep_out:
             return 0
-        return self._ep_out.write(data, timeout=self.TIMEOUT_MS)
+        try:
+            import usb.core
+            return self._ep_out.write(data, timeout=self.TIMEOUT_MS)
+        except usb.core.USBError as e:
+            self._log("warning", f"USB write dropped (device likely disconnected): {e}")
+            self._set_state(ConnState.DISCONNECTED)
+            return 0
+        except Exception as e:
+            self._log("error", f"Unexpected write error: {e}")
+            return 0
 
     def _read(self, length: int) -> bytes:
         if not self._ep_in:
             return b""
         try:
+            import usb.core
             result = self._ep_in.read(length, timeout=self.TIMEOUT_MS)
             return bytes(result)
+        except usb.core.USBError as e:
+            self._log("warning", f"USB read dropped: {e}")
+            self._set_state(ConnState.DISCONNECTED)
+            return b""
         except Exception:
             return b""
 
@@ -415,20 +429,24 @@ class MTKProtocol:
         """Full device info read cycle."""
         if self._state == ConnState.DISCONNECTED:
             return self._device_info
-        # HW/SW version
-        self._write(bytes([BROMCmd.GET_HW_SW_VER]))
-        data = self._read(8)
-        if len(data) >= 8:
-            self._device_info.hw_sub_code = struct.unpack(">H", data[0:2])[0]
-            self._device_info.hw_version  = struct.unpack(">H", data[2:4])[0]
-            self._device_info.sw_version  = struct.unpack(">H", data[4:6])[0]
 
-        # Secure boot check via target config
-        self._write(bytes([BROMCmd.GET_TARGET_CONFIG]))
-        tgt = self._read(8)
-        if tgt:
-            self._device_info.secure_boot = bool(tgt[0] & 0x01)
-            self._device_info.auth_enabled = bool(tgt[0] & 0x02)
+        try:
+            # HW/SW version
+            self._write(bytes([BROMCmd.GET_HW_SW_VER]))
+            data = self._read(8)
+            if data and len(data) >= 8:
+                self._device_info.hw_sub_code = struct.unpack(">H", data[0:2])[0]
+                self._device_info.hw_version  = struct.unpack(">H", data[2:4])[0]
+                self._device_info.sw_version  = struct.unpack(">H", data[4:6])[0]
+
+            # Secure boot check via target config
+            self._write(bytes([BROMCmd.GET_TARGET_CONFIG]))
+            tgt = self._read(8)
+            if tgt and len(tgt) >= 1:
+                self._device_info.secure_boot = bool(tgt[0] & 0x01)
+                self._device_info.auth_enabled = bool(tgt[0] & 0x02)
+        except Exception as e:
+            self._log("error", f"Failed to read device info: {e}")
 
         return self._device_info
 

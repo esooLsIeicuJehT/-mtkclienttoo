@@ -23,19 +23,24 @@ class DeviceInfoTab(QWidget):
 
         # ── Top bar ──────────────────────────────────────────────────────────
         top = QHBoxLayout()
+
         btn_refresh = QPushButton("⟳  Refresh Info")
+        btn_refresh.setMinimumWidth(130)
         btn_refresh.setToolTip("Re-read device info from connected device")
         btn_refresh.clicked.connect(self.refresh)
 
         btn_refresh_adb = QPushButton("ADB Info")
+        btn_refresh_adb.setMinimumWidth(110)
         btn_refresh_adb.setToolTip("Read device info via ADB")
         btn_refresh_adb.clicked.connect(self.refresh_adb)
 
         btn_export = QPushButton("Export Report")
+        btn_export.setMinimumWidth(120)
         btn_export.clicked.connect(self._export_report)
 
         self.lbl_device = QLabel("No device connected")
         self.lbl_device.setObjectName("lbl_disconnected")
+        self.lbl_device.setMinimumWidth(200)
 
         top.addWidget(self.lbl_device)
         top.addStretch()
