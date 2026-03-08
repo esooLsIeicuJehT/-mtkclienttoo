@@ -1,0 +1,33 @@
+=== MTK Client 2.0 — Device Report ===
+
+[ MediaTek Hardware Info ]
+  Chipset               : Unknown
+  HW Code               : 0x0
+  Protocol              : Legacy
+  IMEI                  : N/A
+  IMEI2                 : N/A
+  Serial                : N/A
+  Secure Boot           : No
+  Auth                  : Disabled
+  Storage               : Unknown
+  Android               : N/A
+  Baseband              : N/A
+  Build                 : N/A
+  Mode                  : 
+
+[ Android / ADB Info ]
+  Model                 : T434D
+  Brand                 : TCL
+  Android               : 14
+  SDK                   : 34
+  Build                 : UP1A.231005.007
+  Chipset               : mt6765
+  CPU ABI               : arm64-v8a
+  Fingerprint           : TCL/T434D/Scarab_Lite_TF:14/UP1A.231005.007/6XEF:user/release-keys
+  Bootloader            : unknown
+  Baseband              : MOLY.LR12A.R3.MP.V294.P41
+  Serial                : NZNBEMLVSCZ96LX8
+  IMEI                  : 
+  Security Patch        : 2025-12-05
+  Codename              : Scarab_Lite_TF
+  Manufacturer          : TCL
