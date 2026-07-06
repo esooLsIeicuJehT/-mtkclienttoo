@@ -1,7 +1,7 @@
 # MTK Client 2.0
-### MediaTek Flash & Repair Utility — Cross-Platform
+### MediaTek Flash & Repair Utility — Cross-Platform (Windows/Linux/macOS)
 
-> A feature-complete, cross-platform MediaTek device management tool with a premium GUI. Built beyond the original MTK Client with BROM/Preloader/DA support, ADB integration, and one-click Fedora setup.
+> A feature-complete, cross-platform MediaTek device management tool with a premium GUI. Enhanced detection, database tracking, and improved Windows support.
 
 ---
 
@@ -22,7 +22,12 @@
 | **Device Info** | Full hardware + Android info via BROM and ADB |
 | **Boot Patching** | Magisk root workflow assistant |
 | **Auto-Detect** | USB polling for hot-plug device detection |
-| **One-Click Setup** | Fedora/Ubuntu/Arch udev, groups, ModemManager |
+| **Multi-Method Detection** | Multiple fallback strategies for reliability |
+| **Device History** | SQLite database tracks connected devices |
+| **One-Click Setup** | Fedora/Ubuntu/Arch/OpenSUSE udev, groups, ModemManager |
+| **Windows Support** | UsbDk, VCOM driver detection, registry checks |
+
+---
 
 ## Supported Chipsets
 
@@ -141,19 +146,26 @@ Payload .bin files are **not included** — source from [bkerler/mtkclient](http
 mtkclient2/
 ├── main.py                 Entry point
 ├── requirements.txt
-├── install.sh              Fedora/Linux installer
+├── install.sh              Linux installer (Fedora/Ubuntu/Arch/openSUSE)
 ├── install.bat             Windows installer
 ├── core/
 │   ├── mtk_protocol.py     BROM/Preloader USB protocol
+│   ├── usb_detection.py    Advanced multi-method USB detection
 │   ├── partition_manager.py Scatter parser + partition ops
 │   ├── flash_engine.py     Operation orchestrator (QThread)
-│   └── adb_bridge.py       ADB integration
+│   ├── adb_bridge.py       ADB integration
+│   ├── mtk_chipset_db.py Chipset database
+│   ├── payload_manager.py  Payload download/cache
+│   └── scatter_generator.py Auto scatter from device
 ├── ui/
 │   ├── main_window.py      Top-level window
+│   ├── guide_panel.py      Context-aware help panel
 │   ├── tabs/
 │   │   ├── info_tab.py     Device hardware info
 │   │   ├── flash_tab.py    Scatter flash UI
+│   │   ├── kaeru_tab.py    Payload development workshop
 │   │   ├── tools_tab.py    FRP, payload, ADB, repair
+│   │   ├── root_tab.py     Root/Magisk workflow
 │   │   ├── log_tab.py      Live log viewer
 │   │   └── setup_tab.py    OS setup wizard
 │   └── styles/

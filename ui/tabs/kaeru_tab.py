@@ -34,8 +34,9 @@ from core.mtk_chipset_db import (
 )
 from core.scatter_generator import ScatterGenerator
 from core.payload_manager import PayloadManager
+from utils.logger import get_logger
 
-log_fn = print  # replaced by logger after import
+log_fn = get_logger("kaeru")  # Initialized logger
 
 
 # ── C Syntax Highlighter ──────────────────────────────────────────────────────

@@ -15,6 +15,7 @@ Supports:
 import struct
 import time
 import threading
+import subprocess
 from enum import IntEnum, auto
 from typing import Optional, Callable
 from utils.logger import get_logger
@@ -161,30 +162,16 @@ class MTKProtocol:
             return False
 
         self._set_state(ConnState.DETECTING)
-        self._log("info", "Scanning USB for MediaTek devices…")
-
+        self._log("info", "Scanning USB for MediaTek devices...")
+        
         # Reset state from any previous connection
         self._device_info = DeviceInfo()
         self._ep_in  = None
         self._ep_out = None
 
-        # Try each known MTK PID first (more reliable than vendor-only scan)
-        dev = None
-        detected_mode = ""
-        for pid, mode_name in KNOWN_PIDS.items():
-            candidate = usb.core.find(idVendor=MTK_VENDOR_ID, idProduct=pid)
-            if candidate is not None:
-                dev = candidate
-                detected_mode = mode_name
-                break
-
-        # Fallback: any MTK vendor device
-        if dev is None:
-            dev = usb.core.find(idVendor=MTK_VENDOR_ID)
-            if dev is not None:
-                pid = dev.idProduct
-                detected_mode = KNOWN_PIDS.get(pid, f"Unknown PID={hex(pid)}")
-
+        # Enhanced detection with multiple methods
+        dev, detected_mode = self._detect_mtk_device()
+        
         if dev is None:
             self._log("warning", "No MediaTek device found. Hold Vol-/Vol+ then plug USB.")
             self._set_state(ConnState.DISCONNECTED)
@@ -199,9 +186,7 @@ class MTKProtocol:
             self._setup_usb_endpoints(dev, usb)
         except PermissionError:
             self._log("error",
-                "USB permission denied. On Linux run: sudo udevadm control --reload-rules\n"
-                "Or add your user to plugdev: sudo usermod -aG plugdev $USER\n"
-                "Then log out and back in, or run: sudo chmod 666 /dev/bus/usb/..."
+                self._get_permission_error_msg()
             )
             self._set_state(ConnState.ERROR)
             return False
@@ -523,7 +508,104 @@ class MTKProtocol:
             except Exception:
                 pass
 
-    # ── Logging ───────────────────────────────────────────────────────────────
-    def _log(self, level: str, msg: str):
-        getattr(log, level, log.info)(msg)
-        self._on_log(level, msg)
+    # ── Enhanced Detection Methods ───────────────────────────────────────────────
+    def _detect_mtk_device(self) -> tuple:
+        """Detect MTK device with multiple fallback strategies."""
+        import usb.core
+        
+        # Method 1: Try known PIDs in order of preference
+        for pid, mode_name in KNOWN_PIDS.items():
+            try:
+                candidate = usb.core.find(idVendor=MTK_VENDOR_ID, idProduct=pid)
+                if candidate is not None:
+                    return candidate, mode_name
+            except Exception:
+                continue
+        
+        # Method 2: Any MTK vendor device
+        try:
+            dev = usb.core.find(idVendor=MTK_VENDOR_ID)
+            if dev is not None:
+                pid = dev.idProduct
+                return dev, KNOWN_PIDS.get(pid, f"Unknown PID={hex(pid)}")
+        except Exception:
+            pass
+        
+        # Method 3: System command fallback (Linux lsusb, Windows wmic)
+        dev = self._fallback_detect()
+        if dev:
+            return dev, "Detected (system)"
+        
+        return None, ""
+    
+    def _fallback_detect(self):
+        """System command based fallback detection."""
+        if platform.system() == "Linux":
+            return self._linux_lsusb_detect()
+        elif platform.system() == "Windows":
+            return self._windows_wmi_detect()
+        return None
+    
+    def _linux_lsusb_detect(self):
+        """Linux lsusb-based detection."""
+        try:
+            result = subprocess.run(
+                ["lsusb", "-d", f"{MTK_VENDOR_ID:04x}:"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                # Device exists, signal that we found one
+                # Create a minimal device object for endpoint setup
+                import usb.core
+                for line in result.stdout.splitlines():
+                    if "0e8d" in line:
+                        # Extract PID from lsusb output
+                        import re
+                        match = re.search(r'ID\s+0e8d:([0-9a-fA-F]{4})', line)
+                        if match:
+                            pid = int(match.group(1), 16)
+                            return usb.core.find(idVendor=MTK_VENDOR_ID, idProduct=pid) or True
+        except Exception:
+            pass
+        return None
+    
+    def _windows_wmi_detect(self):
+        """Windows WMI-based detection."""
+        try:
+            result = subprocess.run(
+                ["powershell", "-Command",
+                 "Get-PnpDevice -Class USB | Where-Object {$_.InstanceId -like '*VID_0E8D*'} | "
+                 "Select-Object -ExpandProperty InstanceId"],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return True  # Signal device present
+        except Exception:
+            pass
+        return None
+
+    def _get_permission_error_msg(self) -> str:
+        """Get platform-specific permission error message."""
+        if platform.system() == "Linux":
+            return (
+                "USB permission denied. On Linux run:\n"
+                "  sudo udevadm control --reload-rules\n"
+                "  sudo usermod -aG plugdev,dialout $USER\n"
+                "Or temporarily: sudo chmod 666 /dev/bus/usb/*"
+            )
+        elif platform.system() == "Windows":
+            return (
+                "USB access denied. On Windows:\n"
+                "  - Run as Administrator\n"
+                "  - Install UsbDk from https://github.com/daynix/UsbDk\n"
+                "  - Install MediaTek VCOM drivers\n"
+                "  - Check Device Manager for driver conflicts"
+            )
+        elif platform.system() == "Darwin":
+            return (
+                "USB access denied. On macOS:\n"
+                "  - Grant Terminal accessibility in System Preferences\n"
+                "  - Or run: sudo python3 main.py\n"
+                "  - Ensure libusb is installed: brew install libusb"
+            )
+        return "USB permission denied."

@@ -5,6 +5,13 @@ from .flash_engine import FlashEngine, OpType
 from .adb_bridge import ADBBridge
 from .scatter_generator import ScatterGenerator
 from .payload_manager import PayloadManager
+from .usb_detection import USBDetector, USBDevice, DetectionMethod
+
+# Database module (optional)
+try:
+    from .database import DatabaseService
+except ImportError:
+    DatabaseService = None
 
 __all__ = [
     "MTKProtocol", "DeviceInfo", "ConnState",
@@ -14,4 +21,6 @@ __all__ = [
     "ADBBridge",
     "ScatterGenerator",
     "PayloadManager",
+    "USBDetector", "USBDevice", "DetectionMethod",
+    "DatabaseService",
 ]
