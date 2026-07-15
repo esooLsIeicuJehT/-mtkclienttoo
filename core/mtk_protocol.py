@@ -16,6 +16,7 @@ import struct
 import time
 import threading
 import subprocess
+import platform
 from enum import IntEnum, auto
 from typing import Optional, Callable
 from utils.logger import get_logger
@@ -138,6 +139,10 @@ class MTKProtocol:
         self._on_state_change = on_state_change or (lambda s: None)
         self._on_log = on_log or (lambda lvl, msg: None)
 
+    def _log(self, level: str, msg: str) -> None:
+        getattr(log, level, log.info)(msg)
+        self._on_log(level, msg)
+
     # ── State ─────────────────────────────────────────────────────────────────
     @property
     def state(self) -> ConnState:
@@ -213,7 +218,6 @@ class MTKProtocol:
         Safely claim USB interface and find bulk endpoints.
         Handles Windows (no kernel driver detach), Linux, and macOS.
         """
-        import platform
 
         # Detach kernel driver (Linux/macOS only — skip on Windows)
         if platform.system() != "Windows":

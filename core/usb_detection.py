@@ -8,7 +8,7 @@ import platform
 import subprocess
 import shutil
 from typing import Optional, List, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 try:
@@ -38,19 +38,44 @@ class DetectionMethod(Enum):
     PLATFORM_USB = auto()      # Platform-specific API (win32, etc.)
 
 
+class UsbMode(Enum):
+    """USB device operation modes."""
+    DOWNLOAD = auto()
+    EDL = auto()
+    BROM = auto()
+    PRELOADER = auto()
+    RECOVERY = auto()
+    DIAGNOSTIC = auto()
+    UNKNOWN = auto()
+
+
+@dataclass
+class DeviceIdentifier:
+    """Device USB identifier."""
+    key: str = "unknown"
+
+
 @dataclass
 class USBDevice:
     """Detected USB device information."""
     vendor_id: int
     product_id: int
     serial: str = ""
+    stable_id: str = ""
     bus_id: str = ""
     device_id: str = ""
     description: str = ""
     interface: str = ""
+    manufacturer: str = ""
+    product: str = ""
+    sys_path: str = ""
+    port_path: str = ""
+    mode: UsbMode = field(default_factory=lambda: UsbMode.UNKNOWN)
+    identifier: DeviceIdentifier = field(default_factory=DeviceIdentifier)
     
     @property
     def vid_pid(self) -> str:
+        
         return f"0x{self.vendor_id:04X}:0x{self.product_id:04X}"
     
     @property
@@ -280,14 +305,46 @@ class USBDetector:
             return int(match.group(1), 16)
         return None
     
-    def _pid_to_mode(self, pid: int) -> str:
-        """Convert PID to human-readable mode."""
-        modes = {
-            self.MTK_BROM_PID: "BROM",
-            self.MTK_PRELOADER_PID: "Preloader",
-            self.MTK_DA_PID: "DA Mode",
+    def _pid_to_mode(self, pid: int) -> UsbMode:
+        """Convert PID to USB mode."""
+        mode_map = {
+            self.MTK_BROM_PID: UsbMode.BROM,
+            self.MTK_PRELOADER_PID: UsbMode.PRELOADER,
+            self.MTK_DA_PID: UsbMode.EDL,
         }
-        return modes.get(pid, f"Unknown(0x{pid:04X})")
+        return mode_map.get(pid, UsbMode.UNKNOWN)
+    
+    def scan(self) -> List[USBDevice]:
+        """Scan for all interesting USB devices in download/bootloader modes."""
+        detected: List[USBDevice] = []
+        interesting_pids = {
+            self.MTK_BROM_PID,
+            self.MTK_PRELOADER_PID,
+            self.MTK_DA_PID,
+        }
+        try:
+            if USB_AVAILABLE:
+                for dev in usb.core.find(find_all=True):
+                    pid = dev.idProduct
+                    vid = dev.idVendor
+                    serial = ""
+                    try:
+                        serial = usb.util.get_string(dev, dev.iSerialNumber) or ""
+                    except Exception:
+                        pass
+                    mode = self._pid_to_mode(pid) if vid == self.MTK_VENDOR_ID and pid in interesting_pids else UsbMode.UNKNOWN
+                    detected.append(USBDevice(
+                        vendor_id=vid,
+                        product_id=pid,
+                        serial=serial,
+                        stable_id=str(dev.address) if hasattr(dev, "address") else "",
+                        description=mode.name if mode != UsbMode.UNKNOWN else "",
+                        mode=mode,
+                        identifier=DeviceIdentifier(key=f"0x{vid:04X}:0x{pid:04X}"),
+                    ))
+        except Exception as exc:
+            log.debug("USB scan failed: %s", exc)
+        return detected
     
     def get_all_usb_devices(self) -> List[USBDevice]:
         """Get all USB devices (not just MTK)."""

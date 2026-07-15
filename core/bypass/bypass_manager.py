@@ -8,7 +8,7 @@ import logging
 import time
 from typing import Dict, List, Optional, Callable, Any
 
-from ..core.device_manager import DeviceInfo, DeviceManager
+from ..device_manager import DeviceInfo, DeviceManager
 from .types import BypassResult, BypassMethod
 from .adb_exploits import ADBExploitManager
 from .interface_exploits import InterfaceExploitManager

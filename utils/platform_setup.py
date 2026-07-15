@@ -121,15 +121,18 @@ udevadm trigger
 
     def _check_modemmanager(self):
         """Warn if ModemManager is running and could interfere."""
-        result = subprocess.run(
-            ["systemctl", "is-active", "ModemManager"],
-            capture_output=True, text=True
-        )
-        if result.stdout.strip() == "active":
-            self.warnings.append(
-                "ModemManager is running and may interfere with device detection. "
-                "Consider: sudo systemctl stop ModemManager"
+        try:
+            result = subprocess.run(
+                ["systemctl", "is-active", "ModemManager"],
+                capture_output=True, text=True
             )
+            if result.stdout.strip() == "active":
+                self.warnings.append(
+                    "ModemManager is running and may interfere with device detection. "
+                    "Consider: sudo systemctl stop ModemManager"
+                )
+        except FileNotFoundError:
+            pass
 
     def _check_group_membership(self):
         """Check if user is in required groups for USB access."""

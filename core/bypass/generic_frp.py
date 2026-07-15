@@ -17,11 +17,12 @@ Usage:
     success = bypass.bypass()
 """
 
+import logging
 from typing import Dict, Any, Optional, List
 import time
 
-from core.logger import Logger
-from core.adb_interface import ADBInterface
+from utils.logger import get_logger
+from core.adb_bridge import ADBBridge
 
 
 class GenericFRPBypass:
@@ -37,7 +38,7 @@ class GenericFRPBypass:
             print("FRP bypassed successfully")
     """
 
-    def __init__(self, device_info: Dict[str, Any], logger: Optional[Logger] = None):
+    def __init__(self, device_info: Dict[str, Any], logger: Optional[logging.Logger] = None):
         """
         Initialize FRP bypass module.
 
@@ -46,8 +47,8 @@ class GenericFRPBypass:
             logger: Optional logger instance
         """
         self.device_info = device_info
-        self.logger = logger or Logger()
-        self.adb = ADBInterface(self.logger)
+        self.logger = logger or get_logger("bypass")
+        self.adb = ADBBridge()
         self.serial = device_info.get('serial')
 
     def bypass(self) -> bool:

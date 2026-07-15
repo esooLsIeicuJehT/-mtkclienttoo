@@ -14,9 +14,11 @@ from PyQt5.QtWidgets import (
 from PyQt5.QtCore import Qt, QTimer, pyqtSignal, QObject
 
 from core import MTKProtocol, ConnState, FlashEngine, ADBBridge
+from core.device_manager import DeviceManager
 from ui.tabs import DeviceInfoTab, FlashTab, ToolsTab, LogTab, SetupTab
 from ui.tabs.root_tab import RootTab
 from ui.tabs.kaeru_tab import KaeruTab
+from ui.tabs.bypass_tab import BypassTab
 from ui.guide_panel import GuidePanel
 from utils import get_logger
 
@@ -147,6 +149,25 @@ class ConnectionHeader(QFrame):
     def _poll_usb(self):
         if self._proto.state == ConnState.DISCONNECTED:
             self._proto.connect()
+            self._update_connected_device_label()
+        elif self._proto.state == ConnState.ERROR:
+            self._update_connected_device_label()
+
+    def _update_connected_device_label(self):
+        if self._proto.state in (ConnState.BROM, ConnState.PRELOADER, ConnState.DA_MODE):
+            return
+        try:
+            devices = self._device_manager.scan_devices()
+            if devices:
+                dev = devices[0]
+                label = f"{dev.manufacturer or dev.brand} {dev.model or dev.serial}".strip()
+                if label:
+                    self.device_lbl.setText(label)
+                    self.device_lbl.setStyleSheet(
+                        "color:#00a868; font-size:11px; background:transparent;"
+                    )
+        except Exception:
+            pass
 
     def update_state(self, state, device_name=""):
         label, color = STATE_LABELS.get(state, ("⬤  UNKNOWN", "#607080"))
@@ -183,6 +204,7 @@ class MainWindow(QMainWindow):
         )
         self._engine = FlashEngine(self._proto)
         self._adb    = ADBBridge()
+        self._device_manager = DeviceManager()
 
         self._build_ui()
         self._build_menu()
@@ -216,6 +238,7 @@ class MainWindow(QMainWindow):
         self.tab_tools = ToolsTab(self._engine, self._adb)
         self.tab_root  = RootTab(self._engine, self._adb)
         self.tab_kaeru = KaeruTab(self._engine, self._adb)
+        self.tab_bypass = BypassTab(self._engine, self._adb, self._proto)
         self.tab_log   = LogTab()
         self.tab_setup = SetupTab()
 
@@ -224,6 +247,7 @@ class MainWindow(QMainWindow):
         self.tabs.addTab(self.tab_tools, "🔧  Tools")
         self.tabs.addTab(self.tab_root,  "🌿  Root")
         self.tabs.addTab(self.tab_kaeru, "🐸  Kaeru")
+        self.tabs.addTab(self.tab_bypass, "🔓  Bypass")
         self.tabs.addTab(self.tab_log,   "📋  Logs")
         self.tabs.addTab(self.tab_setup, "⚙   Setup")
 
